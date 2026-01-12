@@ -45,6 +45,25 @@
 
         <div class="section">
             <h2>📋 基本信息</h2>
+            
+            <div class="form-group" style="background: #f8f9fa; padding: 10px; border: 1px solid #e9ecef; border-radius: 4px;">
+                <label>操作模式:</label>
+                <div style="flex: 1; display: flex; align-items: center;">
+                    <input type="radio" name="opMode" id="modeNew" value="new" checked onclick="toggleMode()" style="width: auto; margin-right: 5px;">
+                    <label for="modeNew" style="width: auto; margin-right: 20px; font-weight: normal; cursor: pointer;">建立新報表</label>
+                    
+                    <input type="radio" name="opMode" id="modeAppend" value="append" onclick="toggleMode()" style="width: auto; margin-right: 5px;">
+                    <label for="modeAppend" style="width: auto; font-weight: normal; cursor: pointer;">更新現有報表</label>
+                </div>
+            </div>
+
+            <div class="form-group" id="fileSelectArea" style="display: none; background: #fff3cd; padding: 10px; border: 1px solid #ffeeba; border-radius: 4px;">
+                <label>目標檔案:</label>
+                <input type="text" id="targetFilePath" placeholder="請選擇現有 Excel 檔案..." readonly style="background-color: #fff; cursor: not-allowed;">
+                <button type="button" onclick="document.getElementById('hiddenFile').click()" style="margin-left: 5px; background-color: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">📂 瀏覽...</button>
+                <input type="file" id="hiddenFile" style="display:none" onchange="document.getElementById('targetFilePath').value = this.value">
+            </div>
+
             <div class="form-group">
                 <label>廠商名稱:</label>
                 <input type="text" id="vendorName">
@@ -124,6 +143,13 @@
     </div>
 
     <script type="text/javascript">
+        function toggleMode() {
+            var isAppend = document.getElementById("modeAppend").checked;
+            document.getElementById("fileSelectArea").style.display = isAppend ? "flex" : "none";
+            document.getElementById("btnGenerate").innerHTML = isAppend ? "💾 更新報表" : "🚀 生成日報表";
+            document.getElementById("btnGenerate").className = isAppend ? "btn-success" : "btn-success"; // Keep green or change? Keep green.
+        }
+
         // 確保視窗大小
         function initWindow() {
             window.resizeTo(1150, 950);
@@ -178,10 +204,11 @@
 
     <script language="VBScript">
         Sub doVBSGenerate()
-            document.getElementById("statusMsg").innerHTML = "正在生成..."
+            document.getElementById("statusMsg").innerHTML = "正在處理..."
             On Error Resume Next
             
-            Dim excelApp, workbook, sheet, fso, folderPath, templatePath, newFilePath
+            Dim excelApp, workbook, sheet, fso, folderPath, templatePath, targetPath, isNewMode, resultPath
+            Dim sourceWB, targetWB, newSheet, sheetName, baseName, i
             Set fso = CreateObject("Scripting.FileSystemObject")
             
             ' 獲取當前路徑
@@ -189,20 +216,58 @@
             If Left(folderPath, 1) = "\" Then folderPath = Mid(folderPath, 2)
             templatePath = folderPath & "\施工日報模板.xls"
             
+            isNewMode = document.getElementById("modeNew").checked
+            
             If Not fso.FileExists(templatePath) Then
-                MsgBox "找不到模板文件: 施工日報模板.xls" & vbCrLf & "請確保模板與本工具在同一資料夾。", 16, "錯誤"
+                MsgBox "找不到模板文件: 施工日報模板.xls", 16, "錯誤"
                 Exit Sub
             End If
 
             Set excelApp = CreateObject("Excel.Application")
-            If Err.Number <> 0 Then
-                MsgBox "無法啟動 Excel，請檢查是否已安裝。", 16, "錯誤"
-                Exit Sub
+            excelApp.Visible = False
+            excelApp.DisplayAlerts = False
+            
+            If isNewMode Then
+                ' 模式：建立新檔
+                Set workbook = excelApp.Workbooks.Open(templatePath)
+                Set sheet = workbook.Sheets(1)
+            Else
+                ' 模式：追加分頁到舊檔
+                targetPath = document.getElementById("targetFilePath").value
+                If targetPath = "" Or Not fso.FileExists(targetPath) Then
+                    MsgBox "請選擇正確的目標檔案！", 48, "提示"
+                    excelApp.Quit
+                    Exit Sub
+                End If
+                
+                Set targetWB = excelApp.Workbooks.Open(targetPath)
+                Set sourceWB = excelApp.Workbooks.Open(templatePath)
+                
+                ' 複製模板到目標檔案最後
+                sourceWB.Sheets(1).Copy , targetWB.Sheets(targetWB.Sheets.Count)
+                Set workbook = targetWB
+                Set sheet = targetWB.Sheets(targetWB.Sheets.Count)
+                
+                ' 命名分頁 (使用填報日期)
+                baseName = document.getElementById("reportDate").value
+                baseName = Replace(baseName, "/", "-") ' 防止非法字元
+                sheetName = baseName
+                i = 1
+                Do While True
+                    On Error Resume Next
+                    Dim dummy: Set dummy = targetWB.Sheets(sheetName)
+                    If Err.Number <> 0 Then 
+                        Err.Clear
+                        Exit Do
+                    End If
+                    sheetName = baseName & "_" & i
+                    i = i + 1
+                Loop
+                sheet.Name = sheetName
+                sourceWB.Close False
             End If
 
-            Set workbook = excelApp.Workbooks.Open(templatePath)
-            Set sheet = workbook.Sheets(1)
-
+            ' --- 以下開始填寫數據 (與原邏輯相同) ---
             ' 基本資料
             sheet.Range("B2").Value = document.getElementById("vendorName").value
             sheet.Range("O2").Value = document.getElementById("reportNo").value
@@ -210,68 +275,68 @@
             sheet.Range("C4").Value = document.getElementById("projectName").value
 
             ' 一、施工項目 (9-11)
-            Dim tbody, rows, i, inputs
+            Dim tbody, rows, rowIdx, inputs
             Set tbody = document.getElementById("constructionBody")
             Set rows = tbody.rows
-            For i = 0 To 2
-                If i < rows.length Then
-                    Set inputs = rows(i).getElementsByTagName("input")
-                    sheet.Range("A" & (i + 9)).Value = inputs(0).value
-                    sheet.Range("E" & (i + 9)).Value = inputs(1).value
-                    sheet.Range("O" & (i + 9)).Value = inputs(2).value
+            For rowIdx = 0 To 2
+                If rowIdx < rows.length Then
+                    Set inputs = rows(rowIdx).getElementsByTagName("input")
+                    sheet.Range("A" & (rowIdx + 9)).Value = inputs(0).value
+                    sheet.Range("E" & (rowIdx + 9)).Value = inputs(1).value
+                    sheet.Range("O" & (rowIdx + 9)).Value = inputs(2).value
                 Else
-                    sheet.Range("A" & (i + 9)).Value = ""
-                    sheet.Range("E" & (i + 9)).Value = ""
-                    sheet.Range("O" & (i + 9)).Value = ""
+                    sheet.Range("A" & (rowIdx + 9)).Value = ""
+                    sheet.Range("E" & (rowIdx + 9)).Value = ""
+                    sheet.Range("O" & (rowIdx + 9)).Value = ""
                 End If
             Next
 
             ' 二、材料使用 (14-23)
             Set tbody = document.getElementById("materialBody")
             Set rows = tbody.rows
-            For i = 0 To 9
-                If i < rows.length Then
-                    Set inputs = rows(i).getElementsByTagName("input")
-                    sheet.Range("A" & (i + 14)).Value = inputs(0).value
-                    sheet.Range("C" & (i + 14)).Value = inputs(1).value
-                    sheet.Range("G" & (i + 14)).Value = inputs(2).value
-                    sheet.Range("I" & (i + 14)).Value = inputs(3).value
-                    sheet.Range("L" & (i + 14)).Value = inputs(4).value
-                    sheet.Range("O" & (i + 14)).Value = inputs(5).value
+            For rowIdx = 0 To 9
+                If rowIdx < rows.length Then
+                    Set inputs = rows(rowIdx).getElementsByTagName("input")
+                    sheet.Range("A" & (rowIdx + 14)).Value = inputs(0).value
+                    sheet.Range("C" & (rowIdx + 14)).Value = inputs(1).value
+                    sheet.Range("G" & (rowIdx + 14)).Value = inputs(2).value
+                    sheet.Range("I" & (rowIdx + 14)).Value = inputs(3).value
+                    sheet.Range("L" & (rowIdx + 14)).Value = inputs(4).value
+                    sheet.Range("O" & (rowIdx + 14)).Value = inputs(5).value
                 Else
-                    sheet.Range("A" & (i + 14)).Value = ""
-                    sheet.Range("C" & (i + 14)).Value = ""
-                    sheet.Range("G" & (i + 14)).Value = ""
-                    sheet.Range("I" & (i + 14)).Value = ""
-                    sheet.Range("L" & (i + 14)).Value = ""
-                    sheet.Range("O" & (i + 14)).Value = ""
+                    sheet.Range("A" & (rowIdx + 14)).Value = ""
+                    sheet.Range("C" & (rowIdx + 14)).Value = ""
+                    sheet.Range("G" & (rowIdx + 14)).Value = ""
+                    sheet.Range("I" & (rowIdx + 14)).Value = ""
+                    sheet.Range("L" & (rowIdx + 14)).Value = ""
+                    sheet.Range("O" & (rowIdx + 14)).Value = ""
                 End If
             Next
 
-            ' 三、工別人數 (26-31 左側 A/C/F, 26-31 右側 I/L/O)
+            ' 三、工別人數 (26-31)
             Set tbody = document.getElementById("manpowerBody")
             Set rows = tbody.rows
-            For i = 0 To 11
-                If i < rows.length Then
-                    Set inputs = rows(i).getElementsByTagName("input")
-                    If i < 6 Then
-                        sheet.Range("A" & (i + 26)).Value = inputs(0).value
-                        sheet.Range("C" & (i + 26)).Value = inputs(1).value
-                        sheet.Range("F" & (i + 26)).Value = inputs(2).value
+            For rowIdx = 0 To 11
+                If rowIdx < rows.length Then
+                    Set inputs = rows(rowIdx).getElementsByTagName("input")
+                    If rowIdx < 6 Then
+                        sheet.Range("A" & (rowIdx + 26)).Value = inputs(0).value
+                        sheet.Range("C" & (rowIdx + 26)).Value = inputs(1).value
+                        sheet.Range("F" & (rowIdx + 26)).Value = inputs(2).value
                     Else
-                        sheet.Range("I" & (i - 6 + 26)).Value = inputs(0).value
-                        sheet.Range("L" & (i - 6 + 26)).Value = inputs(1).value
-                        sheet.Range("O" & (i - 6 + 26)).Value = inputs(2).value
+                        sheet.Range("I" & (rowIdx - 6 + 26)).Value = inputs(0).value
+                        sheet.Range("L" & (rowIdx - 6 + 26)).Value = inputs(1).value
+                        sheet.Range("O" & (rowIdx - 6 + 26)).Value = inputs(2).value
                     End If
                 Else
-                    If i < 6 Then
-                        sheet.Range("A" & (i + 26)).Value = ""
-                        sheet.Range("C" & (i + 26)).Value = ""
-                        sheet.Range("F" & (i + 26)).Value = ""
+                    If rowIdx < 6 Then
+                        sheet.Range("A" & (rowIdx + 26)).Value = ""
+                        sheet.Range("C" & (rowIdx + 26)).Value = ""
+                        sheet.Range("F" & (rowIdx + 26)).Value = ""
                     Else
-                        sheet.Range("I" & (i - 6 + 26)).Value = ""
-                        sheet.Range("L" & (i - 6 + 26)).Value = ""
-                        sheet.Range("O" & (i - 6 + 26)).Value = ""
+                        sheet.Range("I" & (rowIdx - 6 + 26)).Value = ""
+                        sheet.Range("L" & (rowIdx - 6 + 26)).Value = ""
+                        sheet.Range("O" & (rowIdx - 6 + 26)).Value = ""
                     End If
                 End If
             Next
@@ -280,20 +345,27 @@
             sheet.Range("A35").Value = document.getElementById("supervision").value
             sheet.Range("A37").Value = document.getElementById("records").value
 
-            ' 存檔
-            Dim ts
-            ts = Replace(Replace(Replace(Now(), "/", ""), ":", ""), " ", "_")
-            newFilePath = folderPath & "\日報表_" & ts & ".xls"
-            
-            workbook.SaveAs newFilePath
+            ' --- 存檔邏輯 ---
+            If isNewMode Then
+                Dim ts
+                ts = Replace(Replace(Replace(Now(), "/", ""), ":", ""), " ", "_")
+                resultPath = folderPath & "\日報表_" & ts & ".xls"
+                workbook.SaveAs resultPath
+                document.getElementById("statusMsg").innerHTML = "✅ 生成完成！"
+                MsgBox "日報表已成功生成！" & vbCrLf & "檔案位置：" & resultPath, 64, "成功"
+            Else
+                resultPath = targetPath
+                workbook.Save
+                document.getElementById("statusMsg").innerHTML = "✅ 追加完成！"
+                MsgBox "已成功在檔案中新增工作表：[" & sheetName & "]" & vbCrLf & "檔案路徑：" & resultPath, 64, "成功"
+            End If
+
             workbook.Close
             excelApp.Quit
-
+            
             If Err.Number <> 0 Then
-                MsgBox "生成過程中發生錯誤: " & Err.Description, 16, "錯誤"
-            Else
-                document.getElementById("statusMsg").innerHTML = "✅ 生成完成！"
-                MsgBox "日報表已成功生成！" & vbCrLf & "檔案位置：" & newFilePath, 64, "成功"
+                MsgBox "處理過程中發生錯誤: " & Err.Description, 16, "錯誤"
+                document.getElementById("statusMsg").innerHTML = "❌ 出錯"
             End If
             On Error GoTo 0
         End Sub
