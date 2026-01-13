@@ -274,76 +274,105 @@
             sheet.Range("O3").Value = document.getElementById("reportDate").value
             sheet.Range("C4").Value = document.getElementById("projectName").value
 
-            ' 一、施工項目 (9-11)
-            Dim tbody, rows, rowIdx, inputs
-            Set tbody = document.getElementById("constructionBody")
-            Set rows = tbody.rows
-            For rowIdx = 0 To 2
-                If rowIdx < rows.length Then
-                    Set inputs = rows(rowIdx).getElementsByTagName("input")
-                    sheet.Range("A" & (rowIdx + 9)).Value = inputs(0).value
-                    sheet.Range("E" & (rowIdx + 9)).Value = inputs(1).value
-                    sheet.Range("O" & (rowIdx + 9)).Value = inputs(2).value
+            ' 一、施工項目 (9-11) 動態插入行邏輯
+            Dim constBody, constRows, matBody, matRows, manBody, manRows
+            Dim vbsI, inputs, insertedCount, currentLine
+            
+            Set constBody = document.getElementById("constructionBody")
+            Set constRows = constBody.rows
+            Set matBody = document.getElementById("materialBody")
+            Set matRows = matBody.rows
+            Set manBody = document.getElementById("manpowerBody")
+            Set manRows = manBody.rows
+            
+            insertedCount = 0
+            
+            ' 處理施工項目
+            For vbsI = 0 To constRows.length - 1
+                currentLine = 9 + vbsI
+                
+                ' 如果超過原本的3行空間(第9, 10, 11行)，則在Excel中插入新行
+                If vbsI >= 3 Then
+                    ' 在目前行位置插入新行，並保持格式
+                    sheet.Rows(currentLine).Insert
+                    ' 複製上一行的格式 (保持表格線條)
+                    sheet.Rows(currentLine - 1).Copy
+                    sheet.Rows(currentLine).PasteSpecial -4122 ' xlPasteFormats
+                    sheet.Application.CutCopyMode = False
+                    insertedCount = insertedCount + 1
+                End If
+                
+                Set inputs = constRows(vbsI).getElementsByTagName("input")
+                sheet.Range("A" & currentLine).Value = inputs(0).value
+                sheet.Range("E" & currentLine).Value = inputs(1).value
+                sheet.Range("O" & currentLine).Value = inputs(2).value
+            Next
+            
+            ' 如果填寫的行數少於3行，清空剩下的預設行
+            If constRows.length < 3 Then
+                For vbsI = constRows.length To 2
+                    sheet.Range("A" & (9 + vbsI)).Value = ""
+                    sheet.Range("E" & (9 + vbsI)).Value = ""
+                    sheet.Range("O" & (9 + vbsI)).Value = ""
+                Next
+            End If
+
+            ' 二、材料使用 (原本在14-23行，現在位置會隨插入行數偏移)
+            Dim matStartRow
+            matStartRow = 14 + insertedCount
+            
+            For vbsI = 0 To 9
+                If vbsI < matRows.length Then
+                    Set inputs = matRows(vbsI).getElementsByTagName("input")
+                    sheet.Range("A" & (matStartRow + vbsI)).Value = inputs(0).value
+                    sheet.Range("C" & (matStartRow + vbsI)).Value = inputs(1).value
+                    sheet.Range("G" & (matStartRow + vbsI)).Value = inputs(2).value
+                    sheet.Range("I" & (matStartRow + vbsI)).Value = inputs(3).value
+                    sheet.Range("L" & (matStartRow + vbsI)).Value = inputs(4).value
+                    sheet.Range("O" & (matStartRow + vbsI)).Value = inputs(5).value
                 Else
-                    sheet.Range("A" & (rowIdx + 9)).Value = ""
-                    sheet.Range("E" & (rowIdx + 9)).Value = ""
-                    sheet.Range("O" & (rowIdx + 9)).Value = ""
+                    sheet.Range("A" & (matStartRow + vbsI)).Value = ""
+                    sheet.Range("C" & (matStartRow + vbsI)).Value = ""
+                    sheet.Range("G" & (matStartRow + vbsI)).Value = ""
+                    sheet.Range("I" & (matStartRow + vbsI)).Value = ""
+                    sheet.Range("L" & (matStartRow + vbsI)).Value = ""
+                    sheet.Range("O" & (matStartRow + vbsI)).Value = ""
                 End If
             Next
 
-            ' 二、材料使用 (14-23)
-            Set tbody = document.getElementById("materialBody")
-            Set rows = tbody.rows
-            For rowIdx = 0 To 9
-                If rowIdx < rows.length Then
-                    Set inputs = rows(rowIdx).getElementsByTagName("input")
-                    sheet.Range("A" & (rowIdx + 14)).Value = inputs(0).value
-                    sheet.Range("C" & (rowIdx + 14)).Value = inputs(1).value
-                    sheet.Range("G" & (rowIdx + 14)).Value = inputs(2).value
-                    sheet.Range("I" & (rowIdx + 14)).Value = inputs(3).value
-                    sheet.Range("L" & (rowIdx + 14)).Value = inputs(4).value
-                    sheet.Range("O" & (rowIdx + 14)).Value = inputs(5).value
-                Else
-                    sheet.Range("A" & (rowIdx + 14)).Value = ""
-                    sheet.Range("C" & (rowIdx + 14)).Value = ""
-                    sheet.Range("G" & (rowIdx + 14)).Value = ""
-                    sheet.Range("I" & (rowIdx + 14)).Value = ""
-                    sheet.Range("L" & (rowIdx + 14)).Value = ""
-                    sheet.Range("O" & (rowIdx + 14)).Value = ""
-                End If
-            Next
-
-            ' 三、工別人數 (26-31)
-            Set tbody = document.getElementById("manpowerBody")
-            Set rows = tbody.rows
-            For rowIdx = 0 To 11
-                If rowIdx < rows.length Then
-                    Set inputs = rows(rowIdx).getElementsByTagName("input")
-                    If rowIdx < 6 Then
-                        sheet.Range("A" & (rowIdx + 26)).Value = inputs(0).value
-                        sheet.Range("C" & (rowIdx + 26)).Value = inputs(1).value
-                        sheet.Range("F" & (rowIdx + 26)).Value = inputs(2).value
+            ' 三、工別人數 (原本在26-31行，現在位置會隨插入行數偏移)
+            Dim manStartRow
+            manStartRow = 26 + insertedCount
+            
+            For vbsI = 0 To 11
+                If vbsI < manRows.length Then
+                    Set inputs = manRows(vbsI).getElementsByTagName("input")
+                    If vbsI < 6 Then
+                        sheet.Range("A" & (manStartRow + vbsI)).Value = inputs(0).value
+                        sheet.Range("C" & (manStartRow + vbsI)).Value = inputs(1).value
+                        sheet.Range("F" & (manStartRow + vbsI)).Value = inputs(2).value
                     Else
-                        sheet.Range("I" & (rowIdx - 6 + 26)).Value = inputs(0).value
-                        sheet.Range("L" & (rowIdx - 6 + 26)).Value = inputs(1).value
-                        sheet.Range("O" & (rowIdx - 6 + 26)).Value = inputs(2).value
+                        sheet.Range("I" & (manStartRow + vbsI - 6)).Value = inputs(0).value
+                        sheet.Range("L" & (manStartRow + vbsI - 6)).Value = inputs(1).value
+                        sheet.Range("O" & (manStartRow + vbsI - 6)).Value = inputs(2).value
                     End If
                 Else
-                    If rowIdx < 6 Then
-                        sheet.Range("A" & (rowIdx + 26)).Value = ""
-                        sheet.Range("C" & (rowIdx + 26)).Value = ""
-                        sheet.Range("F" & (rowIdx + 26)).Value = ""
+                    If vbsI < 6 Then
+                        sheet.Range("A" & (manStartRow + vbsI)).Value = ""
+                        sheet.Range("C" & (manStartRow + vbsI)).Value = ""
+                        sheet.Range("F" & (manStartRow + vbsI)).Value = ""
                     Else
-                        sheet.Range("I" & (rowIdx - 6 + 26)).Value = ""
-                        sheet.Range("L" & (rowIdx - 6 + 26)).Value = ""
-                        sheet.Range("O" & (rowIdx - 6 + 26)).Value = ""
+                        sheet.Range("I" & (manStartRow + vbsI - 6)).Value = ""
+                        sheet.Range("L" & (manStartRow + vbsI - 6)).Value = ""
+                        sheet.Range("O" & (manStartRow + vbsI - 6)).Value = ""
                     End If
                 End If
             Next
 
-            ' 其他
-            sheet.Range("A35").Value = document.getElementById("supervision").value
-            sheet.Range("A37").Value = document.getElementById("records").value
+            ' 其他事項 (原本在35, 37行)
+            sheet.Range("A" & (35 + insertedCount)).Value = document.getElementById("supervision").value
+            sheet.Range("A" & (37 + insertedCount)).Value = document.getElementById("records").value
+
 
             ' --- 存檔邏輯 ---
             If isNewMode Then
