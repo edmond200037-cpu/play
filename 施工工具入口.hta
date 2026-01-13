@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>施工管理工具箱</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <hta:application 
+        id="oHTA_Entry"
+        applicationname="ConstructionToolbox"
+        border="thin"
+        borderstyle="normal"
+        caption="yes"
+        maximizebutton="no"
+        minimizebutton="yes"
+        showintaskbar="yes"
+        singleinstance="yes"
+        sysmenu="yes"
+        version="1.0"
+        windowstate="normal"
+    >
+    <style>
+        body { 
+            font-family: "Microsoft JhengHei", Arial, sans-serif; 
+            background-color: #f4f7f6; 
+            margin: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh;
+            color: #333; 
+        }
+        .container { 
+            width: 400px; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1); 
+            text-align: center;
+        }
+        h1 { 
+            color: #2c3e50; 
+            margin-bottom: 30px; 
+            font-size: 1.8em;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+        }
+        .menu-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .menu-btn {
+            padding: 15px 20px;
+            font-size: 1.1em;
+            color: white;
+            background-color: #3498db;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+            text-align: left;
+            display: flex;
+            align-items: center;
+        }
+        .menu-btn:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+        .menu-btn:active {
+            transform: translateY(0);
+        }
+        .menu-btn i {
+            margin-right: 15px;
+            font-size: 1.2em;
+        }
+        .btn-disabled {
+            background-color: #bdc3c7;
+            cursor: default;
+        }
+        .btn-disabled:hover {
+            background-color: #bdc3c7;
+            transform: none;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 0.8em;
+            color: #95a5a6;
+        }
+    </style>
+</head>
+<body onload="window.resizeTo(480, 550)">
+    <div class="container">
+        <h1>施工管理工具箱</h1>
+        
+        <div class="menu-list">
+            <button class="menu-btn" onclick="launchTool('施工日報表工具.hta')">
+                <span>📝 施工日報表工具</span>
+            </button>
+            
+            <button class="menu-btn btn-disabled">
+                <span>🏗️ 施工進度管理 (開發中)</span>
+            </button>
+            
+            <button class="menu-btn btn-disabled">
+                <span>📋 工程材料檢驗 (開發中)</span>
+            </button>
+        </div>
+
+        <div class="footer">
+            v1.0 | 施工日報表系統
+        </div>
+    </div>
+
+    <script language="VBScript">
+        Sub launchTool(fileName)
+            Set shell = CreateObject("WScript.Shell")
+            ' 取得目前路徑
+            currentPath = Replace(window.location.pathname, "/", "\")
+            If Left(currentPath, 1) = "\" Then currentPath = Mid(currentPath, 2)
+            
+            pos = InStrRev(currentPath, "\")
+            folderPath = Left(currentPath, pos)
+            
+            fullPath = folderPath & fileName
+            
+            ' 使用 mshta 啟動另一個 HTA
+            shell.Run "mshta.exe """ & fullPath & """", 1, False
+        End Sub
+    </script>
+</body>
+</html>

@@ -71,12 +71,15 @@ Since this is a new project, establish patterns as you add code. Keep these prin
 
 ## Project Structure
 
-**Current Status**: Empty playground directory
+**Current Status**: Construction management toolkit with entry navigation.
 
 ```
 play/
-├── .opencode/          # OpenCode managed resources
-└── (to be populated)  # Your code goes here
+├── 施工工具入口.hta      # Main entry page (Launcher)
+├── 施工日報表工具.hta    # Construction daily report data entry tool
+├── 施工日報模板.xls      # Excel template for reports
+├── .opencode/           # OpenCode managed resources
+└── (to be populated)    # Future tools
 ```
 
 ---
